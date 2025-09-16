@@ -6,7 +6,8 @@
       "src": "dist/main.js",
       "use": "@vercel/node",
       "config": {
-        "maxLambdaSize": "50mb"
+        "maxLambdaSize": "50mb",
+        "maxDuration": 30
       }
     }
   ],
@@ -18,11 +19,6 @@
   ],
   "env": {
     "NODE_ENV": "production"
-  },
-  "functions": {
-    "dist/main.js": {
-      "maxDuration": 30
-    }
   },
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist",
