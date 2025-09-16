@@ -1,0 +1,19 @@
+{
+  "name": "360flow-app",
+  "version": "1.0.0",
+  "description": "360Flow - Plateforme de gestion de projets pour architectes et entrepreneurs",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "turbo": "^1.10.12"
+  },
+  "packageManager": "npm@10.8.2"
+}

@@ -1,0 +1,320 @@
+// This is your Prisma schema file for MariaDB
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  ARCHITECT
+  CLIENT
+}
+
+enum ProjectStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  SUSPENDED
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ClientType {
+  INDIVIDUAL
+  COMPANY
+}
+
+enum StepStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  BLOCKED
+  SUSPENDED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+  BLOCKED
+  SUSPENDED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  avatarUrl String?  // URL de la photo de profil
+  phone     String?  // Numéro de téléphone
+  jobTitle  String?  // Poste/titre professionnel
+  department String? // Département
+  bio       String?  // Biographie professionnelle
+  skills    String?  // Compétences (JSON string)
+  experience String? // Années d'expérience
+  certifications String? // Certifications (JSON string)
+  linkedinUrl String? // URL LinkedIn
+  website   String?  // Site web personnel
+  timezone  String?  // Fuseau horaire
+  language  String?  // Langue préférée
+  role      UserRole @default(CLIENT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  projects Project[] @relation("ProjectMembers")
+  messages Message[]
+  assignedTasks Task[] @relation("TaskAssignee")
+  createdTasks Task[] @relation("TaskCreator")
+  fileComments FileComment[]
+
+  @@map("users")
+}
+
+model Client {
+  id        String       @id @default(cuid())
+  email     String       @unique
+  firstName String
+  lastName  String
+  phone     String?
+  address   String?
+  status    ClientStatus @default(ACTIVE)
+  type      ClientType   @default(INDIVIDUAL)
+  company   String?
+  website   String?
+  notes     String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  // Relations
+  projects Project[]
+
+  @@map("clients")
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  status      ProjectStatus @default(DRAFT)
+  startDate   DateTime?
+  endDate     DateTime?
+  budget      Float?
+  clientId    String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  client      Client        @relation(fields: [clientId], references: [id])
+  members     User[]        @relation("ProjectMembers")
+  steps       ProjectStep[]
+  files       File[]
+  messages    Message[]
+
+  @@map("projects")
+}
+
+model ProjectStep {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  order       Int
+  status      StepStatus  @default(PENDING)
+  startDate   DateTime?
+  endDate     DateTime?
+  projectId   String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  project     Project     @relation(fields: [projectId], references: [id])
+  tasks       Task[]
+
+  @@map("project_steps")
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus @default(TODO)
+  priority    Priority   @default(MEDIUM)
+  order       Int
+  stepId      String
+  assigneeId  String?
+  creatorId   String
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  step        ProjectStep @relation(fields: [stepId], references: [id])
+  assignee    User?       @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creator     User        @relation("TaskCreator", fields: [creatorId], references: [id])
+  materials   TaskMaterial[]
+
+  @@map("tasks")
+}
+
+model Material {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  unit        String   // kg, m, l, etc.
+  pricePerUnit Float
+  supplier    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  taskMaterials TaskMaterial[]
+
+  @@map("materials")
+}
+
+model TaskMaterial {
+  id         String   @id @default(cuid())
+  quantity   Float
+  totalPrice Float
+  taskId     String
+  materialId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  task       Task     @relation(fields: [taskId], references: [id])
+  material   Material @relation(fields: [materialId], references: [id])
+
+  @@map("task_materials")
+}
+
+model File {
+  id           String   @id @default(cuid())
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  path         String
+  projectId    String
+  uploadedBy   String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  project      Project      @relation(fields: [projectId], references: [id])
+  comments     FileComment[]
+
+  @@map("files")
+}
+
+model FileComment {
+  id        String   @id @default(cuid())
+  content   String
+  fileId    String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  file      File     @relation(fields: [fileId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("file_comments")
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  projectId String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  project   Project  @relation(fields: [projectId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("messages")
+}
+
+model ProjectTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  steps       TemplateStep[]
+
+  @@map("project_templates")
+}
+
+model TemplateStep {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  order       Int
+  templateId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  template    ProjectTemplate @relation(fields: [templateId], references: [id])
+  tasks       TemplateTask[]
+
+  @@map("template_steps")
+}
+
+model TemplateTask {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  priority    Priority @default(MEDIUM)
+  order       Int
+  stepId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  step        TemplateStep @relation(fields: [stepId], references: [id])
+
+  @@map("template_tasks")
+}
+
+model CompanySettings {
+  id                String   @id @default(cuid())
+  companyName       String
+  address           String?
+  phone             String?
+  email             String?
+  website           String?
+  logo              String?
+  currency          String   @default("EUR")
+  timezone          String   @default("Europe/Paris")
+  language          String   @default("fr")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("company_settings")
+}

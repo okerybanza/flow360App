@@ -1,0 +1,384 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  ARCHITECT
+  CLIENT
+}
+
+enum ProjectStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  SUSPENDED
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ClientType {
+  INDIVIDUAL
+  COMPANY
+}
+
+enum StepStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  BLOCKED
+  SUSPENDED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+  BLOCKED
+  SUSPENDED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  avatarUrl String?  // URL de la photo de profil
+  phone     String?  // Numéro de téléphone
+  jobTitle  String?  // Poste/titre professionnel
+  department String? // Département
+  bio       String?  // Biographie professionnelle
+  skills    String?  // Compétences (JSON string)
+  experience String? // Années d'expérience
+  certifications String? // Certifications (JSON string)
+  linkedinUrl String? // URL LinkedIn
+  website   String?  // Site web personnel
+  timezone  String?  // Fuseau horaire
+  language  String?  // Langue préférée
+  role      UserRole @default(CLIENT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  projects Project[] @relation("ProjectMembers")
+  messages Message[]
+  assignedTasks Task[] @relation("TaskAssignee")
+  createdTasks Task[] @relation("TaskCreator")
+  fileComments FileComment[]
+
+  @@map("users")
+}
+
+model Client {
+  id        String       @id @default(cuid())
+  email     String       @unique
+  firstName String
+  lastName  String
+  phone     String?
+  address   String?
+  status    ClientStatus @default(ACTIVE)
+  type      ClientType   @default(INDIVIDUAL)
+  companyName String?    // For company clients
+  website   String?      // For company clients
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  // Relations
+  projects Project[]
+
+  @@map("clients")
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  status      ProjectStatus @default(DRAFT)
+  budget      Float?
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relations
+  clientId    String
+  client      Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  members     User[]      @relation("ProjectMembers")
+  projectMaterials ProjectMaterial[]
+  files       File[]
+  messages    Message[]
+  templateId  String?
+  template    ProjectTemplate? @relation(fields: [templateId], references: [id])
+  steps       ProjectStep[]
+
+  @@map("projects")
+}
+
+enum Currency {
+  USD
+  CDF
+}
+
+model Material {
+  id          String   @id @default(cuid())
+  name        String
+  brand       String?
+  unit        String
+  price       Float
+  currency    Currency @default(USD)
+  category    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  projectMaterials ProjectMaterial[]
+  taskMaterials    TaskMaterial[] // New relation
+
+  @@map("materials")
+}
+
+// New model for linking materials to tasks
+model TaskMaterial {
+  id         String   @id @default(cuid())
+  quantity   Float
+  totalPrice Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  taskId     String
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("task_materials")
+}
+
+// Keep existing ProjectMaterial for backward compatibility (will be deprecated)
+model ProjectMaterial {
+  id         String   @id @default(cuid())
+  quantity   Float
+  totalPrice Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_materials")
+}
+
+model File {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  type      String
+  size      Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  comments  FileComment[]
+  messageAttachments MessageFile[]
+
+  @@map("files")
+}
+
+model FileComment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  fileId    String
+  file      File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId  String? // For replies
+  parent    FileComment? @relation("FileCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   FileComment[] @relation("FileCommentReplies")
+
+  @@map("file_comments")
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Relations avec les fichiers
+  attachments MessageFile[]
+
+  @@map("messages")
+}
+
+model MessageFile {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  
+  // Relations
+  messageId String
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  fileId    String
+  file      File    @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  
+  @@unique([messageId, fileId])
+  @@map("message_files")
+}
+
+model ProjectTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  steps       ProjectTemplateStep[]
+  projects    Project[]
+
+  @@map("project_templates")
+}
+
+model ProjectTemplateStep {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  order       Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  templateId  String
+  template    ProjectTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  tasks       ProjectTemplateTask[]
+
+  @@map("project_template_steps")
+}
+
+model ProjectTemplateTask {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  order       Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  stepId      String
+  step        ProjectTemplateStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@map("project_template_tasks")
+}
+
+model ProjectStep {
+  id                 String     @id @default(cuid())
+  title              String
+  description        String?
+  order              Int
+  status             StepStatus @default(PENDING)
+  startDate          DateTime?
+  endDate            DateTime?
+  plannedStartDate   DateTime?
+  plannedEndDate     DateTime?
+  estimatedDuration  Int?       // in days
+  actualDuration     Int?       // in days
+  isCustom           Boolean    @default(false)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  // Relations
+  projectId          String
+  project            Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks              Task[]
+
+  @@map("project_steps")
+}
+
+model Task {
+  id                 String     @id @default(cuid())
+  title              String
+  description        String?
+  order              Int
+  status             TaskStatus @default(TODO)
+  priority           Priority   @default(MEDIUM)
+  dueDate            DateTime?
+  plannedStartDate   DateTime?
+  plannedEndDate     DateTime?
+  estimatedDuration  Int?       // in hours
+  actualDuration     Int?       // in hours
+  isCustom           Boolean    @default(false)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  // Relations
+  stepId             String
+  step               ProjectStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  assignedTo         String?
+  assignee           User?       @relation("TaskAssignee", fields: [assignedTo], references: [id])
+  createdBy          String
+  creator            User        @relation("TaskCreator", fields: [createdBy], references: [id])
+  taskMaterials      TaskMaterial[] // New relation
+
+  @@map("tasks")
+}
+
+model CompanySettings {
+  id          String   @id @default(cuid())
+  name        String
+  logo        String?  // URL du logo
+  primaryColor String  @default("#1e40af")
+  secondaryColor String @default("#64748b")
+  accentColor String   @default("#0ea5e9")
+  successColor String  @default("#10b981")
+  warningColor String  @default("#f59e0b")
+  dangerColor String   @default("#ef4444")
+  backgroundColor String @default("#ffffff")
+  textColor String     @default("#1f2937")
+  fontFamily String    @default("Inter")
+  fontSize String      @default("medium")
+  email       String?
+  phone       String?
+  address     String?
+  website     String?
+  currency    String   @default("EUR")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("company_settings")
+}

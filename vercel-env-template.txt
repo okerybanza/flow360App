@@ -1,0 +1,22 @@
+# Vercel Environment Variables Template
+# Copy these to your Vercel project settings
+
+# Database (Vercel Postgres)
+DATABASE_URL=postgresql://username:password@host:port/database
+POSTGRES_URL=postgresql://username:password@host:port/database
+POSTGRES_PRISMA_URL=postgresql://username:password@host:port/database?pgbouncer=true&connect_timeout=15
+POSTGRES_URL_NON_POOLING=postgresql://username:password@host:port/database
+POSTGRES_USER=username
+POSTGRES_HOST=host
+POSTGRES_PASSWORD=password
+POSTGRES_DATABASE=database
+
+# JWT Secrets
+JWT_SECRET=your-super-secret-jwt-key-here-make-it-long-and-random
+JWT_REFRESH_SECRET=your-super-secret-refresh-key-here-make-it-long-and-random
+
+# Frontend URL (will be set after frontend deployment)
+FRONTEND_URL=https://your-frontend-url.vercel.app
+
+# Node Environment
+NODE_ENV=production
